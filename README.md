@@ -12,9 +12,9 @@
 
 ## 📖 Introduction
 
-**Hyper Captcha Solver** is a lightweight, stealth-focused automation tool designed to solve text-based captchas automatically. It combines a **Python OCR backend** (Flask + OpenCV + Tesseract) with a **Chrome Extension (Manifest V3)** to deliver human-like, undetectable captcha solving on supported platforms.
+**Hyper Captcha Solver** is a lightweight, stealth-focused automation tool designed to solve multiple captcha types automatically — **Text**, **reCAPTCHA v2**, **hCaptcha**, and **Audio challenges**. It combines a **Python backend** (Flask + OpenCV + Tesseract + SpeechRecognition) with a **Chrome Extension (Manifest V3)** to deliver human-like, undetectable captcha solving.
 
-The system is optimized for **stealth** — every keystroke, mouse movement, and timing delay mimics real human behavior to reduce detection risk.
+The system is optimized for **stealth** — every keystroke follows bezier-curved mouse paths, typing jitter, and randomized thinking delays to mimic genuine human behavior.
 
 ---
 
@@ -22,11 +22,16 @@ The system is optimized for **stealth** — every keystroke, mouse movement, and
 
 | Feature | Description |
 |---|---|
-| 🧠 **Automated Image Processing** | Captcha images are preprocessed using OpenCV — grayscale conversion, adaptive thresholding, and noise reduction for maximum OCR accuracy |
-| ⌨️ **Human-like Typing Simulation** | Each character is typed with a random 150–300ms jitter delay, simulating real keystroke intervals |
-| 🔄 **Smart IP Refresh System** | Built-in alert triggers every 25 solves reminding you to rotate your VPN IP address |
-| 🖱️ **Mouse Movement Emulation** | Randomized hover coordinates simulate genuine cursor behavior before clicking |
-| 📟 **Real-time CLI Logging** | Every solve attempt is logged to the terminal with success/fail status, elapsed time, and total count |
+| 🧠 **Multi-Type Support** | Text OCR, reCAPTCHA v2 (audio challenge), hCaptcha, GeeTest — all in one pipeline |
+| 🔊 **Audio Challenge Solver** | reCAPTCHA v2 audio → SpeechRecognition → text, with full automation |
+| 🔌 **API Fallback** | Optional 2Captcha/Anti-Captcha integration for complex hCaptcha & GeeTest |
+| 🧮 **Smart Image Processing** | Grayscale → OTSU thresholding → median blur → Tesseract OCR with whitelist |
+| ⌨️ **Human-like Typing** | 150–300ms jitter per keystroke |
+| 🖱️ **Bezier Mouse Paths** | Curved mouse movements instead of direct clicks |
+| ⏱️ **Variable Thinking Time** | 2–7 second random delay after solving before submission |
+| 🔄 **Smart IP Refresh** | Alert every 25 solves to rotate VPN |
+| 📟 **Real-time CLI Logging** | Per-solve logging with type tag — `[TEXT]`, `[AUDIO]`, `[RECAPTCHAv2]`, `[HCAPTCHA]` |
+| 👁️ **Dynamic Detection** | MutationObserver watches DOM for all captcha types and solves on appearance |
 
 ---
 
@@ -42,12 +47,6 @@ cd hyper-captcha-solver
 ### Step 2: Install Python Dependencies
 
 ```powershell
-pip install flask flask-cors pytesseract opencv-python pillow
-```
-
-Or install via the bundled `requirements.txt`:
-
-```powershell
 pip install -r requirements.txt
 ```
 
@@ -57,13 +56,20 @@ Download and install **Tesseract-OCR** from the official repository:
 
 👉 [https://github.com/UB-Mannheim/tesseract/wiki](https://github.com/UB-Mannheim/tesseract/wiki)
 
-**Default installation path:**
-
+Default path:
 ```
 C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-> ⚠️ If you install Tesseract to a different location, update the path in `backend/server.py` (line 9).
+> ⚠️ Update the path in `backend/server.py` if installed elsewhere.
+
+### Step 4 (Optional): 2Captcha API Key
+
+Set environment variable for API fallback mode:
+
+```powershell
+$env:TWOCAPTCHA_KEY = "your_api_key_here"
+```
 
 ---
 
@@ -75,25 +81,21 @@ C:\Program Files\Tesseract-OCR\tesseract.exe
 python backend/server.py
 ```
 
-**Expected output:**
-
 ```
-==================================================
+=======================================================
   Hyper Captcha Solver - Backend Running
   Endpoint: http://localhost:5000/solve
-==================================================
+  Support: [TEXT] [AUDIO] [RECAPTCHAv2] [HCAPTCHA] [GEETEST]
+=======================================================
 ```
-
-The server listens on `http://localhost:5000` and accepts POST requests with base64-encoded captcha images.
 
 ### 2. Load the Chrome Extension
 
-1. Open Google Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Select the `extension/` folder from the project directory
+1. Open Chrome → `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **Load unpacked** → select `extension/` folder
 
-Once loaded, the extension will automatically activate on `kolotibablo.com` and begin solving captchas.
+The extension auto-activates, detects captcha type, and solves.
 
 ---
 
@@ -101,12 +103,30 @@ Once loaded, the extension will automatically activate on `kolotibablo.com` and 
 
 | Technology | Purpose |
 |---|---|
-| **Python** | Core programming language |
-| **Flask** | Lightweight REST API server with CORS support |
-| **OpenCV** | Image preprocessing (grayscale, thresholding, denoising) |
-| **Tesseract OCR** | Optical character recognition for captcha text extraction |
-| **JavaScript** | Chrome Extension content script logic |
-| **Chrome Extension V3** | Browser integration for DOM manipulation and API communication |
+| **Python** | Core backend logic |
+| **Flask** | REST API with CORS |
+| **OpenCV** | Image preprocessing (grayscale, threshold, denoise) |
+| **Tesseract OCR** | Text captcha character extraction |
+| **SpeechRecognition** | reCAPTCHA v2 audio challenge → text |
+| **2Captcha API** | Fallback for hCaptcha / GeeTest |
+| **JavaScript** | Chrome Extension content script |
+| **Chrome Extension V3** | Browser DOM manipulation & API calls |
+
+---
+
+## 📁 File Structure
+
+```
+hyper-captcha-solver/
+├── backend/
+│   └── server.py              # Multi-type solver (TEXT / AUDIO / RECAPTCHAv2 / HCAPTCHA / GEETEST)
+├── extension/
+│   ├── manifest.json          # Chrome Extension V3 manifest
+│   └── content.js             # Dynamic detection + bezier mouse paths + variable thinking
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
 
 ---
 
@@ -118,4 +138,4 @@ Once loaded, the extension will automatically activate on `kolotibablo.com` and 
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+MIT
