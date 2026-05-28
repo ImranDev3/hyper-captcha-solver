@@ -1,55 +1,40 @@
-const SOLVER_API = 'http://localhost:5000/solve';
+const SOLVE_KEY = 'hcs_solveCount';
 let solveCount = 0;
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+(async () => {
+  const d = await chrome.storage.local.get([SOLVE_KEY]);
+  solveCount = d[SOLVE_KEY] || 0;
+})();
 
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 function randomBetween(min, ms) {
   return Math.floor(Math.random() * (ms - min + 1)) + min;
 }
 
-function randomDecimal(min, max) {
-  return Math.random() * (max - min) + min;
+async function incrementSolve() {
+  solveCount++;
+  await chrome.storage.local.set({ [SOLVE_KEY]: solveCount });
 }
 
 function simulateCurvedMouseClick(element) {
   const rect = element.getBoundingClientRect();
-  const targetX = rect.left + randomBetween(1, rect.width - 1);
-  const targetY = rect.top + randomBetween(1, rect.height - 1);
-  const startX = targetX - randomBetween(50, 150);
-  const startY = targetY - randomBetween(50, 150);
-  const cp1x = startX + randomBetween(80, 200);
-  const cp1y = startY - randomBetween(30, 80);
-  const cp2x = targetX - randomBetween(50, 120);
-  const cp2y = targetY + randomBetween(30, 80);
+  const tx = rect.left + randomBetween(1, Math.max(1, rect.width - 1));
+  const ty = rect.top + randomBetween(1, Math.max(1, rect.height - 1));
+  const sx = tx - randomBetween(50, 150);
+  const sy = ty - randomBetween(50, 150);
   const steps = randomBetween(8, 16);
-
-  function bezierPoint(t, p0, p1, p2, p3) {
-    const u = 1 - t;
-    return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-  }
-
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const x = bezierPoint(t, startX, cp1x, cp2x, targetX);
-    const y = bezierPoint(t, startY, cp1y, cp2y, targetY);
-    element.dispatchEvent(new MouseEvent('mousemove', {
-      bubbles: true, cancelable: true, clientX: x, clientY: y
-    }));
+    const x = (1-t)*(1-t)*(1-t)*sx + 3*(1-t)*(1-t)*t*(sx+randomBetween(80,200)) + 3*(1-t)*t*t*(tx-randomBetween(50,120)) + t*t*t*tx;
+    const y = (1-t)*(1-t)*(1-t)*sy + 3*(1-t)*(1-t)*t*(sy-randomBetween(30,80)) + 3*(1-t)*t*t*(ty+randomBetween(30,80)) + t*t*t*ty;
+    element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
   }
-  element.dispatchEvent(new MouseEvent('mouseover', {
-    bubbles: true, cancelable: true, clientX: targetX, clientY: targetY
-  }));
-  element.dispatchEvent(new MouseEvent('mousedown', {
-    bubbles: true, cancelable: true, clientX: targetX, clientY: targetY
-  }));
-  element.dispatchEvent(new MouseEvent('mouseup', {
-    bubbles: true, cancelable: true, clientX: targetX, clientY: targetY
-  }));
-  element.dispatchEvent(new MouseEvent('click', {
-    bubbles: true, cancelable: true, clientX: targetX, clientY: targetY
-  }));
+  element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX: tx, clientY: ty }));
+  element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: tx, clientY: ty }));
+  element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: tx, clientY: ty }));
+  element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: tx, clientY: ty }));
 }
 
 async function typeHumanlike(input, text) {
@@ -63,218 +48,253 @@ async function typeHumanlike(input, text) {
   }
 }
 
-async function solveTextCaptcha(imgElement) {
-  console.log('[HCS] Detected TEXT captcha');
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = imgElement.naturalWidth || imgElement.width;
-    canvas.height = imgElement.naturalHeight || imgElement.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(imgElement, 0, 0);
-    const base64Image = canvas.toDataURL('image/png');
-
-    const response = await fetch(SOLVER_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'text', image: base64Image })
-    });
-    const data = await response.json();
-    solveCount++;
-
-    if (data.success && data.text) {
-      console.log(`[HCS] [TEXT] Solved: ${data.text}`);
-      await typeResultAndSubmit(data.text);
-    } else {
-      console.warn('[HCS] [TEXT] Failed to solve');
-    }
-  } catch (err) {
-    console.error('[HCS] [TEXT] Error:', err);
-  }
+function canvasToDataUrl(img) {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth || img.width;
+  c.height = img.naturalHeight || img.height;
+  c.getContext('2d').drawImage(img, 0, 0);
+  return c.toDataURL('image/png');
 }
 
-async function solveRecaptchaV2() {
-  console.log('[HCS] Detected reCAPTCHA v2 widget');
-  try {
-    const frame = document.querySelector('iframe[src*="recaptcha/api2"]');
-    if (!frame) return;
-
-    const grecaptcha = window.grecaptcha;
-    if (grecaptcha && grecaptcha.execute) {
-      const siteKey = frame.src.match(/[?&]k=([^&]+)/);
-      if (!siteKey) return;
-
-      await sleep(randomBetween(500, 1500));
-      const response = await fetch(SOLVER_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'recaptcha_v2',
-          site_key: siteKey[1],
-          page_url: window.location.href,
-          sub_type: 'recaptcha_v2'
-        })
-      });
-      const data = await response.json();
-      solveCount++;
-
-      if (data.success && data.text) {
-        console.log(`[HCS] [RECAPTCHAv2] Solved: ${data.text}`);
-        const textarea = document.querySelector('#g-recaptcha-response');
-        if (textarea) {
-          textarea.innerHTML = data.text;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        await sleep(randomBetween(2000, 7000));
-        const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
-        if (submitBtn) simulateCurvedMouseClick(submitBtn);
-      }
-    }
-  } catch (err) {
-    console.error('[HCS] [RECAPTCHAv2] Error:', err);
-  }
+async function ocrText(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = async () => {
+      while (!window.Tesseract) await sleep(100);
+      const canvas = document.createElement('canvas');
+      const img = new Image();
+      img.onload = async () => {
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        try {
+          const { data } = await Tesseract.recognize(canvas, 'eng', {
+            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+          });
+          const text = data.text.replace(/[^a-zA-Z0-9]/g, '').trim();
+          resolve(text);
+        } catch (e) { reject(e.message); }
+      };
+      img.onerror = () => reject('Image load failed');
+      img.src = dataUrl;
+    };
+    s.onerror = () => reject('CDN blocked by CSP');
+    document.head.appendChild(s);
+  });
 }
 
-async function solveRecaptchaAudio() {
-  console.log('[HCS] Attempting reCAPTCHA v2 Audio Challenge');
+// ──────────────────── TEXT CAPTCHA ────────────────────
+
+async function solveTextCaptcha(img) {
+  console.log('[HCS] [TEXT] Processing...');
   try {
-    const audioEl = document.querySelector('iframe[src*="recaptcha/api2"]')?.contentDocument?.querySelector('audio');
-    if (!audioEl || !audioEl.src) return;
-
-    const audioResp = await fetch(audioEl.src);
-    const audioBlob = await audioResp.blob();
-    const reader = new FileReader();
-    reader.readAsDataURL(audioBlob);
-    await new Promise(r => { reader.onload = r; });
-
-    const response = await fetch(SOLVER_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'audio', image: reader.result })
-    });
-    const data = await response.json();
-    solveCount++;
-
-    if (data.success && data.text) {
-      console.log(`[HCS] [AUDIO] Solved: ${data.text}`);
-      const input = document.querySelector('input[name="captcha-response"], input[id*="audio-response"]');
-      if (input) {
-        await typeHumanlike(input, data.text);
-        const verifyBtn = document.querySelector('button:has(svg), button:has(.rc-button-default)');
-        if (verifyBtn) {
-          await sleep(randomBetween(500, 1500));
-          simulateCurvedMouseClick(verifyBtn);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[HCS] [AUDIO] Error (cross-origin limit):', err);
-  }
-}
-
-async function solveHcaptcha() {
-  console.log('[HCS] Detected hCaptcha widget');
-  try {
-    const frame = document.querySelector('iframe[src*="hcaptcha.com"]');
-    if (!frame) return;
-
-    const siteKey = frame.src.match(/[?&]sitekey=([^&]+)/);
-    if (!siteKey) return;
-
-    const response = await fetch(SOLVER_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'hcaptcha',
-        site_key: siteKey[1],
-        page_url: window.location.href,
-        sub_type: 'hcaptcha'
-      })
-    });
-    const data = await response.json();
-    solveCount++;
-
-    if (data.success && data.text) {
-      console.log(`[HCS] [HCAPTCHA] Solved: ${data.text}`);
-      const textarea = document.querySelector('[name="h-captcha-response"]');
-      if (textarea) {
-        textarea.innerHTML = data.text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      await sleep(randomBetween(2000, 7000));
-      const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
-      if (submitBtn) simulateCurvedMouseClick(submitBtn);
-    }
-  } catch (err) {
-    console.error('[HCS] [HCAPTCHA] Error:', err);
+    const dataUrl = canvasToDataUrl(img);
+    const text = await ocrText(dataUrl);
+    if (!text) return console.warn('[HCS] [TEXT] OCR returned empty');
+    console.log(`[HCS] [TEXT] Solved: ${text}`);
+    await typeResultAndSubmit(text);
+    await incrementSolve();
+    ipCheck();
+  } catch (e) {
+    console.error('[HCS] [TEXT] Error:', e);
   }
 }
 
 async function typeResultAndSubmit(text) {
   const input = document.querySelector('input[name="captcha"], input[id*="captcha"], input[type="text"]');
   if (!input) return;
-
   await typeHumanlike(input, text);
-  const thinkingTime = randomBetween(2000, 7000);
-  console.log(`[HCS] Variable thinking: ${thinkingTime}ms`);
-  await sleep(thinkingTime);
+  const think = randomBetween(2000, 7000);
+  console.log(`[HCS] Thinking: ${think}ms`);
+  await sleep(think);
+  const btn = document.querySelector('button[type="submit"], input[type="submit"]');
+  if (btn) simulateCurvedMouseClick(btn);
+}
 
-  const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
-  if (submitBtn) {
-    simulateCurvedMouseClick(submitBtn);
+// ──────────────────── AUDIO (reCAPTCHA) ────────────────────
+
+async function solveAudioCaptcha() {
+  console.log('[HCS] [AUDIO] Processing...');
+  try {
+    const audioEl = document.querySelector('audio[src*="recaptcha"], audio[src*="audio"]');
+    if (!audioEl || !audioEl.src) return;
+
+    const resp = await fetch(audioEl.src);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const au = new Audio(url);
+    au.volume = 1;
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    if (!recognition) {
+      console.warn('[HCS] [AUDIO] SpeechRecognition not supported');
+      return;
+    }
+
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    const text = await new Promise((resolve, reject) => {
+      recognition.onresult = e => resolve(e.results[0][0].transcript.trim());
+      recognition.onerror = () => reject('Speech recognition failed');
+      au.play().then(() => {
+        setTimeout(() => {
+          recognition.start();
+          setTimeout(() => { recognition.stop(); au.pause(); }, 6000);
+        }, 500);
+      }).catch(reject);
+    });
+
+    if (!text) return;
+    console.log(`[HCS] [AUDIO] Solved: ${text}`);
+
+    const input = document.querySelector('input[name="captcha-response"], input[id*="audio-response"]');
+    if (input) {
+      await typeHumanlike(input, text);
+      await sleep(randomBetween(500, 1500));
+      const btn = document.querySelector('button:has(svg), button.rc-button-default, #recaptcha-verify-button');
+      if (btn) simulateCurvedMouseClick(btn);
+    }
+    await incrementSolve();
+    ipCheck();
+  } catch (e) {
+    console.error('[HCS] [AUDIO] Error:', e);
   }
 }
 
-async function smartWaitForFrame(selector, maxWaitMs = 10000) {
-  const pollMs = 300;
-  let waited = 0;
-  while (waited < maxWaitMs) {
-    const el = document.querySelector(selector);
+// ──────────────────── RECAPTCHA V2 ────────────────────
+
+async function solveRecaptchaV2() {
+  console.log('[HCS] [RECAPTCHAv2] Processing...');
+  try {
+    const frame = document.querySelector('iframe[src*="recaptcha/api2"]');
+    if (!frame) return;
+    const siteKey = frame.src.match(/[?&]k=([^&]+)/);
+    if (!siteKey) return;
+
+    // Try audio challenge first (free method)
+    const gc = window.grecaptcha;
+    if (gc && gc.execute) {
+      await sleep(1000);
+      // Trigger checkbox click
+      const checkbox = document.querySelector('.recaptcha-checkbox-border');
+      if (checkbox) {
+        simulateCurvedMouseClick(checkbox);
+        await sleep(3000);
+        // Try audio fallback
+        solveAudioCaptcha();
+      }
+    }
+  } catch (e) {
+    console.error('[HCS] [RECAPTCHAv2] Error:', e);
+  }
+}
+
+// ──────────────────── HCAPTCHA ────────────────────
+
+async function solveHcaptcha() {
+  console.log('[HCS] [HCAPTCHA] Processing...');
+  try {
+    const frame = document.querySelector('iframe[src*="hcaptcha.com"]');
+    if (!frame) return;
+    const siteKey = frame.src.match(/[?&]sitekey=([^&]+)/);
+    if (!siteKey) return;
+
+    // Use 2Captcha if API key is stored
+    const { tcKey } = await chrome.storage.local.get(['tcKey']);
+    if (!tcKey) {
+      console.log('[HCS] [HCAPTCHA] No 2Captcha key. Set in popup.');
+      return;
+    }
+
+    const apiKey = tcKey;
+    const inResp = await fetch('https://2captcha.com/in.php', {
+      method: 'POST',
+      body: new URLSearchParams({
+        key: apiKey, method: 'hcaptcha', sitekey: siteKey[1],
+        pageurl: window.location.href, json: '1'
+      })
+    });
+    const inData = await inResp.json();
+    if (inData.status !== 1) return;
+
+    for (let i = 0; i < 30; i++) {
+      await sleep(5000);
+      const pollResp = await fetch('https://2captcha.com/res.php', {
+        method: 'POST',
+        body: new URLSearchParams({
+          key: apiKey, action: 'get', id: inData.request, json: '1'
+        })
+      });
+      const pollData = await pollResp.json();
+      if (pollData.status === 1) {
+        const ta = document.querySelector('[name="h-captcha-response"]');
+        if (ta) {
+          ta.innerHTML = pollData.request;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        await sleep(randomBetween(2000, 7000));
+        const btn = document.querySelector('button[type="submit"], input[type="submit"]');
+        if (btn) simulateCurvedMouseClick(btn);
+        await incrementSolve();
+        ipCheck();
+        return;
+      }
+    }
+  } catch (e) {
+    console.error('[HCS] [HCAPTCHA] Error:', e);
+  }
+}
+
+// ──────────────────── DETECTION ────────────────────
+
+function ipCheck() {
+  if (solveCount > 0 && solveCount % 25 === 0) {
+    alert('[HCS] IP Refresh Required! Change your VPN now.');
+  }
+}
+
+async function smartWait(sel, maxMs = 10000) {
+  for (let w = 0; w < maxMs; w += 300) {
+    const el = document.querySelector(sel);
     if (el) return el;
-    await sleep(pollMs);
-    waited += pollMs;
+    await sleep(300);
   }
   return null;
 }
 
 async function detectAndSolve() {
-  const captchaImg = document.querySelector(
-    'img[src*="captcha"], img[alt*="captcha"], img[id*="captcha"], img[class*="captcha"]'
-  );
-
-  if (captchaImg && !captchaImg.dataset.hcsProcessed) {
-    captchaImg.dataset.hcsProcessed = '1';
-    setTimeout(() => solveTextCaptcha(captchaImg), randomBetween(500, 1500));
+  const img = document.querySelector('img[src*="captcha"], img[alt*="captcha"], img[id*="captcha"], img[class*="captcha"]');
+  if (img && !img.dataset.hcsDone) {
+    img.dataset.hcsDone = '1';
+    setTimeout(() => solveTextCaptcha(img), randomBetween(500, 1500));
     return;
   }
 
-  const recaptchaFrame = await smartWaitForFrame('iframe[src*="recaptcha/api2"]');
-  if (recaptchaFrame && !recaptchaFrame.dataset.hcsProcessed) {
-    recaptchaFrame.dataset.hcsProcessed = '1';
+  const rf = await smartWait('iframe[src*="recaptcha/api2"]');
+  if (rf && !rf.dataset.hcsDone) {
+    rf.dataset.hcsDone = '1';
     await sleep(randomBetween(1000, 2000));
     solveRecaptchaV2();
     return;
   }
 
-  const audioFrame = await smartWaitForFrame('iframe[src*="recaptcha/api2/bf"]');
-  if (audioFrame && !audioFrame.dataset.hcsProcessed) {
-    audioFrame.dataset.hcsProcessed = '1';
-    solveRecaptchaAudio();
+  const af = document.querySelector('audio[src*="recaptcha"], audio[src*="audio"]');
+  if (af && !af.dataset.hcsDone) {
+    af.dataset.hcsDone = '1';
+    solveAudioCaptcha();
     return;
   }
 
-  const hcaptchaFrame = await smartWaitForFrame('iframe[src*="hcaptcha.com"]');
-  if (hcaptchaFrame && !hcaptchaFrame.dataset.hcsProcessed) {
-    hcaptchaFrame.dataset.hcsProcessed = '1';
+  const hf = await smartWait('iframe[src*="hcaptcha.com"]');
+  if (hf && !hf.dataset.hcsDone) {
+    hf.dataset.hcsDone = '1';
     await sleep(randomBetween(1000, 2000));
     solveHcaptcha();
     return;
   }
 }
 
-const observer = new MutationObserver(() => {
-  detectAndSolve();
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
+const obs = new MutationObserver(() => detectAndSolve());
+obs.observe(document.body, { childList: true, subtree: true });
 detectAndSolve();

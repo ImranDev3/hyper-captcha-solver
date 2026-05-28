@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Hyper Captcha Solver",
-  "version": "1.0.0",
-  "description": "Automated captcha solver for kolotibablo.com",
+  "version": "2.0.0",
+  "description": "Self-contained captcha solver — Text OCR + Audio + hCaptcha. No backend needed.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,7 +10,7 @@
   ],
   "host_permissions": [
     "https://kolotibablo.com/*",
-    "http://localhost:5000/*"
+    "https://cdn.jsdelivr.net/*"
   ],
   "content_scripts": [
     {
@@ -19,7 +19,11 @@
       "run_at": "document_idle"
     }
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
-    "default_title": "Hyper Captcha Solver"
+    "default_title": "Hyper Captcha Solver",
+    "default_popup": "popup.html"
   }
 }

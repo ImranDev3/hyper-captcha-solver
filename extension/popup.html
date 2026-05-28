@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head><title>Hyper Captcha Solver</title></head>
+<body style="width:300px;font-family:system-ui,sans-serif;padding:16px;background:#1a1a2e;color:#eee;margin:0;">
+  <h3 style="margin:0 0 4px;">🧠 Hyper Captcha Solver</h3>
+  <p style="font-size:13px;margin:0 0 12px;color:#888;">Fully self-contained · No backend</p>
+
+  <div style="background:#16213e;border-radius:8px;padding:12px;margin-bottom:12px;">
+    <p style="margin:0 0 4px;font-size:13px;">Status: <span id="status" style="color:#4caf50;font-weight:bold;">Active</span></p>
+    <p style="margin:0;font-size:13px;">Solved: <span id="count" style="color:#e94560;font-weight:bold;">0</span></p>
+  </div>
+
+  <label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">2Captcha API Key (optional):</label>
+  <input id="apiKey" type="text" placeholder="Enter key for hCaptcha..." style="width:100%;padding:6px;border:1px solid #333;border-radius:4px;background:#0f3460;color:#eee;font-size:12px;box-sizing:border-box;">
+  <button id="saveKey" style="margin-top:6px;padding:6px 12px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Save</button>
+
+  <p style="font-size:11px;color:#555;margin-top:12px;">Text & Audio captchas work automatically. hCaptcha requires 2Captcha key.</p>
+
+  <script>
+    const countEl = document.getElementById('count');
+    const apiInput = document.getElementById('apiKey');
+    const saveBtn = document.getElementById('saveKey');
+
+    chrome.storage.local.get(['solveCount', 'tcKey'], r => {
+      if (r.solveCount) countEl.textContent = r.solveCount;
+      if (r.tcKey) apiInput.value = r.tcKey;
+    });
+
+    chrome.storage.onChanged.addListener(changes => {
+      if (changes.solveCount) countEl.textContent = changes.solveCount.newValue;
+    });
+
+    saveBtn.addEventListener('click', () => {
+      chrome.storage.local.set({ tcKey: apiInput.value.trim() }, () => {
+        saveBtn.textContent = 'Saved!';
+        setTimeout(() => { saveBtn.textContent = 'Save'; }, 1500);
+      });
+    });
+  </script>
+</body>
+</html>
