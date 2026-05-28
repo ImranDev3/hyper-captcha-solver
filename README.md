@@ -95,7 +95,56 @@ python backend/server.py
 2. Enable **Developer mode**
 3. Click **Load unpacked** → select `extension/` folder
 
-The extension auto-activates, detects captcha type, and solves.
+---
+
+## 🎯 How to Use (Step-by-Step)
+
+### Step 1: Start the Backend Server
+Open **VS Code Terminal** (or any terminal) and run:
+```powershell
+python backend/server.py
+```
+Keep this terminal window open — the server must stay running.
+
+### Step 2: Load the Extension in Chrome
+1. Open Chrome
+2. Go to `chrome://extensions/`
+3. Toggle **Developer mode** ON (top-right)
+4. Click **Load unpacked**
+5. Browse and select the `extension/` folder
+6. You should see **Hyper Captcha Solver** in your extensions list
+
+### Step 3: Go to Kolotibablo
+1. Open a new tab
+2. Go to `https://kolotibablo.com`
+3. Log in to your account
+4. Start a captcha task
+
+### Step 4: Watch It Work Automatically
+- The extension **auto-detects** the captcha image on the page
+- It captures the image → sends to your local Flask server
+- Flask processes it with OpenCV + Tesseract → returns the solved text
+- The extension **auto-types** the result into the input box (with human-like jitter)
+- After a random 2-7 second wait, it **auto-clicks** the submit button
+- Check your terminal — you'll see real-time logs like:
+```
+[+] [TEXT] SOLVED: 'aB3xY' | Time: 0.842s | Total: 1
+[+] [TEXT] SOLVED: '9kM2p' | Time: 0.651s | Total: 2
+```
+
+### Step 5: IP Rotation (Every 25 Solves)
+- After 25 solves, a popup will alert you: **"IP Refresh Required! Change your VPN now."**
+- Change your VPN IP address
+- Click **OK** on the popup
+- The counter resets automatically
+
+### Troubleshooting
+| Issue | Fix |
+|---|---|
+| Server won't start | Run `pip install -r requirements.txt` |
+| "Tesseract not found" | Install Tesseract OCR from [UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) and update path in `server.py` |
+| Extension not detecting | Refresh the page, check `chrome://extensions/` is enabled |
+| Wrong captcha text | Check the image quality — better lighting = better OCR
 
 ---
 
