@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Hyper Captcha Solver",
+  "version": "1.0.0",
+  "description": "Automated captcha solver for kolotibablo.com",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://kolotibablo.com/*",
+    "http://localhost:5000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://kolotibablo.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Hyper Captcha Solver"
+  }
+}
