@@ -1,63 +1,81 @@
 ﻿# Hyper Captcha Solver
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
-![Flask](https://img.shields.io/badge/Flask-3.1.1-black?logo=flask)
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-brightgreen?logo=googlechrome)
-![License](https://img.shields.io/badge/License-MIT-green)
+> **Next-Gen Stealth Automation for Captcha Solving**
 
-**Automated OCR-based captcha solving system** for `kolotibablo.com` — Flask backend + Chrome Extension with human-like stealth behavior.
-
----
-
-## Architecture
-
-```
-┌─────────────────────┐       POST /solve        ┌──────────────────┐
-│  Chrome Extension   │ ──── base64 image ────→   │  Flask Backend   │
-│  (content.js)       │ ←─── solved text ────     │  (server.py)     │
-└─────────────────────┘                           └──────┬───────────┘
-                                                          │
-                                                    ┌─────▼──────┐
-                                                    │  Tesseract  │
-                                                    │  + OpenCV   │
-                                                    └────────────┘
-```
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=fff)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.1.1-000?logo=flask)](https://flask.palletsprojects.com)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.11-5C3EE8?logo=opencv)](https://opencv.org)
+[![Chrome](https://img.shields.io/badge/Chrome_Extension-V3-4285F4?logo=googlechrome)](https://developer.chrome.com/docs/extensions)
+[![License](https://img.shields.io/badge/License-MIT-5E5E5E)](#license)
 
 ---
 
-## Features
+## 📖 Introduction
+
+**Hyper Captcha Solver** is a lightweight, stealth-focused automation tool designed to solve text-based captchas automatically. It combines a **Python OCR backend** (Flask + OpenCV + Tesseract) with a **Chrome Extension (Manifest V3)** to deliver human-like, undetectable captcha solving on supported platforms.
+
+The system is optimized for **stealth** — every keystroke, mouse movement, and timing delay mimics real human behavior to reduce detection risk.
+
+---
+
+## ✨ Key Features
 
 | Feature | Description |
 |---|---|
-| **OCR Engine** | Base64 image → Grayscale → Thresholding → Tesseract extraction |
-| **Human-like Typing** | Per-character delay 150-300ms jitter |
-| **Mouse Simulation** | Random hover offset before click events |
-| **Auto Submit** | 1-3s randomized delay before form submission |
-| **IP Refresh Alert** | Notification every 25 solves to change VPN |
-| **MutationObserver** | Auto-detects captcha images on dynamic page loads |
-| **CORS Enabled** | Secure communication between extension and backend |
+| 🧠 **Automated Image Processing** | Captcha images are preprocessed using OpenCV — grayscale conversion, adaptive thresholding, and noise reduction for maximum OCR accuracy |
+| ⌨️ **Human-like Typing Simulation** | Each character is typed with a random 150–300ms jitter delay, simulating real keystroke intervals |
+| 🔄 **Smart IP Refresh System** | Built-in alert triggers every 25 solves reminding you to rotate your VPN IP address |
+| 🖱️ **Mouse Movement Emulation** | Randomized hover coordinates simulate genuine cursor behavior before clicking |
+| 📟 **Real-time CLI Logging** | Every solve attempt is logged to the terminal with success/fail status, elapsed time, and total count |
 
 ---
 
-## Installation
+## 🛠️ Installation Guide
 
-### 1. Install Tesseract OCR
+### Step 1: Clone the Repository
 
-Download & install from [UB-Mannheim Tesseract](https://github.com/UB-Mannheim/tesseract/wiki)
+```bash
+git clone https://github.com/ImranDev3/hyper-captcha-solver.git
+cd hyper-captcha-solver
+```
 
-Default path: `C:\Program Files\Tesseract-OCR\`
+### Step 2: Install Python Dependencies
 
-### 2. Install Python Dependencies
+```powershell
+pip install flask flask-cors pytesseract opencv-python pillow
+```
+
+Or install via the bundled `requirements.txt`:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3. Start Backend Server
+### Step 3: Install Tesseract-OCR
+
+Download and install **Tesseract-OCR** from the official repository:
+
+👉 [https://github.com/UB-Mannheim/tesseract/wiki](https://github.com/UB-Mannheim/tesseract/wiki)
+
+**Default installation path:**
+
+```
+C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
+> ⚠️ If you install Tesseract to a different location, update the path in `backend/server.py` (line 9).
+
+---
+
+## 🚀 How to Run
+
+### 1. Start the Flask Backend
 
 ```powershell
 python backend/server.py
 ```
+
+**Expected output:**
 
 ```
 ==================================================
@@ -66,78 +84,38 @@ python backend/server.py
 ==================================================
 ```
 
-### 4. Load Chrome Extension
+The server listens on `http://localhost:5000` and accepts POST requests with base64-encoded captcha images.
 
-1. Open Chrome → `chrome://extensions/`
-2. Enable **Developer mode** (top-right toggle)
+### 2. Load the Chrome Extension
+
+1. Open Google Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top-right corner)
 3. Click **Load unpacked**
-4. Select the `extension/` folder
+4. Select the `extension/` folder from the project directory
+
+Once loaded, the extension will automatically activate on `kolotibablo.com` and begin solving captchas.
 
 ---
 
-## File Structure
+## 🧰 Tech Stack
 
-```
-hyper-captcha-solver/
-├── backend/
-│   └── server.py              # Flask OCR API (port 5000)
-├── extension/
-│   ├── manifest.json          # Chrome Extension V3 manifest
-│   └── content.js             # Auto-solve + stealth logic
-├── requirements.txt           # Python dependencies
-├── .gitignore
-└── README.md
-```
+| Technology | Purpose |
+|---|---|
+| **Python** | Core programming language |
+| **Flask** | Lightweight REST API server with CORS support |
+| **OpenCV** | Image preprocessing (grayscale, thresholding, denoising) |
+| **Tesseract OCR** | Optical character recognition for captcha text extraction |
+| **JavaScript** | Chrome Extension content script logic |
+| **Chrome Extension V3** | Browser integration for DOM manipulation and API communication |
 
 ---
 
-## API Reference
+## ⚠️ Disclaimer
 
-### `POST /solve`
-
-**Request:**
-```json
-{
-  "image": "data:image/png;base64,iVBORw0..."
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "text": "aB3xY",
-  "solves": 1,
-  "ip_alert": false
-}
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `success` | bool | OCR extraction result |
-| `text` | string | Solved captcha text (alphanumeric) |
-| `solves` | int | Total captchas solved since server start |
-| `ip_alert` | bool | Triggers every 25 solves |
+> This project is intended **for educational purposes only**. The author does not condone or encourage any violation of terms of service, abuse of automated systems, or any illegal activity. Users are solely responsible for ensuring their use complies with all applicable laws and platform policies. Use at your own risk.
 
 ---
 
-## Stealth & Anti-Ban
+## 📄 License
 
-- Random key press intervals (150-300ms)
-- Randomized mouse coordinates on click
-- Submit delay 1-3 seconds (randomized)
-- VPN/IP change reminder at 25 solve intervals
-
----
-
-## Notes
-
-- Tesseract path in `backend/server.py:9` — update if installed elsewhere
-- Only compatible with **text-based** captchas
-- For production, consider deploying backend behind a reverse proxy
-
----
-
-## License
-
-MIT
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
